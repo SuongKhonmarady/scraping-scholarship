@@ -2,7 +2,7 @@ name: Auto Scraper
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # Runs every day at 2:00 UTC; adjust as needed
+    - cron: '0 0 * * *'  # Runs every day at 7:00 AM Cambodia (UTC+7)
   workflow_dispatch:      # Allow manual trigger
 
 jobs:
