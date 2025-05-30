@@ -77,12 +77,11 @@ def clean_date(date_str):
 
 def create_table(cursor):
     """Create scholarships table if it doesn't exist"""
-    # Drop existing table
-    drop_table_sql = "DROP TABLE IF EXISTS scholarships;"
-    cursor.execute(drop_table_sql)
+    # Check if table exists instead of dropping it
+    # Removed: drop_table_sql = "DROP TABLE IF EXISTS scholarships;"
     
     create_table_sql = """
-    CREATE TABLE scholarships (
+    CREATE TABLE IF NOT EXISTS scholarships (
         id INT AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(500),
         description TEXT,
@@ -107,14 +106,19 @@ def create_table(cursor):
     cursor.execute(create_table_sql)
 
 def scholarship_exists(cursor, title, link):
-    """Check if a scholarship already exists in the database"""
+    """
+    Check if a scholarship already exists in the database
+    Returns False if not exists, or the row ID if it exists
+    """
     check_sql = """
-    SELECT COUNT(*) FROM scholarships 
+    SELECT id FROM scholarships 
     WHERE title = %s OR link = %s
     """
     cursor.execute(check_sql, (title, link))
-    count = cursor.fetchone()[0]
-    return count > 0
+    result = cursor.fetchone()
+    if result:
+        return result[0]  # Return the id of existing scholarship
+    return False
 
 def process_csv_file(cursor, file_path):
     """Process a single CSV file and insert data into database"""
@@ -140,17 +144,17 @@ def process_csv_file(cursor, file_path):
                     print(f"⚠️ Skipped row {total_rows} (no title)")
                     skipped_rows += 1
                     continue
-                
-                # Check if scholarship already exists
-                if scholarship_exists(cursor, row['Title'], row['Link']):
-                    print(f"⏭️ Skipped (already exists): {row['Title'][:50]}...")
+                  # Check if scholarship already exists
+                existing_id = scholarship_exists(cursor, row['Title'], row['Link'])
+                if existing_id:
+                    print(f"⏭️ Existing record found (id: {existing_id}): {row['Title'][:50]}...")
                     skipped_rows += 1
                     continue
 
                 # Clean deadline date
                 deadline = clean_date(row.get('Deadline', None))
-                  # Clean post date
-                # Determine post date based on deadline rules
+                
+                # Determine post date based on deadline rules for NEW records only
                 post_at = None
                 try:
                     if deadline:
@@ -235,9 +239,9 @@ def process_csv_file(cursor, file_path):
 def main():
     # Database configuration
     db_config = {
-        'host': 'localhost', 
-        'user': 'root',
-        'password': '',  
+        'host': '35.174.114.119', 
+        'user': 'marady',
+        'password': 'Rady@098',  
         'database': 'mydb'
     }
 
