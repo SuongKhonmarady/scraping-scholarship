@@ -298,10 +298,10 @@ def main(dry_run=False):
         #     "url": "https://opportunitiescorners.com/category/scholarships-in-usa/",
         #     "type": "opportunities_corners"
         # },
-        # "UK": {
-        #     "url": "https://opportunitiescorners.com/category/scholarships-in-uk/",
-        #     "type": "opportunities_corners"
-        # },
+        "UK": {
+            "url": "https://opportunitiescorners.com/category/scholarships-in-uk/",
+            "type": "opportunities_corners"
+        },
         # "Canada": {
         #     "url": "https://opportunitiescorners.com/category/scholarships-in-canada/",
         #     "type": "opportunities_corners"
