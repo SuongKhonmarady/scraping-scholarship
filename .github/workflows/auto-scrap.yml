@@ -18,6 +18,11 @@ jobs:
         pwd
         ls -al
 
+    - name: List all files for debugging
+      run: |
+        pwd
+        ls -al
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
