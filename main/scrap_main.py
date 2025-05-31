@@ -251,7 +251,7 @@ def cleanup_temporary_files(csv_files):
 def main(dry_run=False):
     # Set up shared browser instance
     options = webdriver.ChromeOptions()
-    # options.add_argument("--headless")  # Uncomment for headless operation
+    options.add_argument("--headless")  # Uncomment for headless operation
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
