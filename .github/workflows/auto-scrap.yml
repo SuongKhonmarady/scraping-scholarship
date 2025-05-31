@@ -35,7 +35,7 @@ jobs:
       run: python run_scraper.py
 
     - name: Upload data to EC2 DB
-        env:
+      env:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
