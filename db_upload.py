@@ -4,6 +4,8 @@ from datetime import datetime
 import re
 import os
 import glob
+# Load environment variables
+from dotenv import load_dotenv
 
 def clean_date(date_str):
     """Convert various date string formats to MySQL date format YYYY-MM-DD"""
@@ -237,9 +239,7 @@ def process_csv_file(cursor, file_path):
         }
 
 def main():
-    # Load environment variables
-    from dotenv import load_dotenv
-    import os
+    
     
     load_dotenv()
     
