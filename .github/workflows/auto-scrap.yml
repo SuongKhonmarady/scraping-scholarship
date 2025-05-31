@@ -13,6 +13,11 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: List all files for debugging
+      run: |
+        pwd
+        ls -al
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
