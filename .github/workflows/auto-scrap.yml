@@ -2,8 +2,8 @@ name: Auto Scraper
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs every day at 7:00 AM Cambodia (UTC+7)
-  workflow_dispatch:      # Allow manual trigger
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   run-scraper:
@@ -21,15 +21,13 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10'  # Use your required version
+        python-version: '3.10'
 
     - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
+      run: pip install -r requirements.txt
 
     - name: Run scraper
-      run: |
-        python run_scraper.py
+      run: python run_scraper.py
 
     - name: Upload results
       uses: actions/upload-artifact@v4
