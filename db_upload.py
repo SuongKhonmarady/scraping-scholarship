@@ -237,12 +237,18 @@ def process_csv_file(cursor, file_path):
         }
 
 def main():
+    # Load environment variables
+    from dotenv import load_dotenv
+    import os
+    
+    load_dotenv()
+    
     # Database configuration
     db_config = {
-        'host': '35.174.114.119', 
-        'user': 'marady',
-        'password': 'Rady@098',  
-        'database': 'mydb'
+        'host': os.getenv('DB_HOST'),
+        'user': os.getenv('DB_USER'),
+        'password': os.getenv('DB_PASSWORD'),
+        'database': os.getenv('DB_DATABASE')
     }
 
     # Overall statistics

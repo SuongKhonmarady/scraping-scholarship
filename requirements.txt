@@ -3,3 +3,5 @@ requests
 beautifulsoup4
 selenium
 webdriver-manager
+mysql-connector-python
+python-dotenv
