@@ -112,11 +112,20 @@ def scholarship_exists(cursor, title, link):
     Check if a scholarship already exists in the database
     Returns False if not exists, or the row ID if it exists
     """
-    check_sql = """
-    SELECT id FROM scholarships 
-    WHERE title = %s OR link = %s
-    """
-    cursor.execute(check_sql, (title, link))
+    # Handle case where link is None or NaN
+    if link is None:
+        check_sql = """
+        SELECT id FROM scholarships 
+        WHERE title = %s
+        """
+        cursor.execute(check_sql, (title,))
+    else:
+        check_sql = """
+        SELECT id FROM scholarships 
+        WHERE title = %s OR link = %s
+        """
+        cursor.execute(check_sql, (title, link))
+        
     result = cursor.fetchone()
     if result:
         return result[0]  # Return the id of existing scholarship
@@ -145,9 +154,11 @@ def process_csv_file(cursor, file_path):
                 if pd.isna(row['Title']) or row['Title'].strip() == "":
                     print(f"⚠️ Skipped row {total_rows} (no title)")
                     skipped_rows += 1
-                    continue
-                  # Check if scholarship already exists
-                existing_id = scholarship_exists(cursor, row['Title'], row['Link'])
+                    continue                # Check if scholarship already exists
+                # Make sure Link exists before using it
+                link = row.get('Link')
+                link = None if pd.isna(link) else link
+                existing_id = scholarship_exists(cursor, row['Title'], link)
                 if existing_id:
                     print(f"⏭️ Existing record found (id: {existing_id}): {row['Title'][:50]}...")
                     skipped_rows += 1
@@ -176,9 +187,7 @@ def process_csv_file(cursor, file_path):
                         print(f"📆 No deadline. Default post_at to today: {post_at}")
                 except Exception as e:
                     print(f"⚠️ Failed to calculate post_at: {str(e)}")
-                    post_at = datetime.today().strftime("%Y-%m-%d")
-
-                # Get region from data or from filename
+                    post_at = datetime.today().strftime("%Y-%m-%d")                # Get region from data or from filename
                 region = row.get('Region', None)
                 if region is None or pd.isna(region):
                     # Extract region from filename
@@ -186,6 +195,8 @@ def process_csv_file(cursor, file_path):
                     match = re.search(r'scholarships-(\w+)', filename)
                     if match:
                         region = match.group(1).replace('-', ' ').title()
+                    else:
+                        region = None  # Ensure region is None not NaN if extraction fails
                 
                 # Prepare insert query
                 insert_sql = """
@@ -197,20 +208,26 @@ def process_csv_file(cursor, file_path):
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
                 """
+                  # Prepare data tuple
+                # Handle missing values and pandas NaN values properly
+                def safe_get(row, key, default=None):
+                    """Get a value from the row, handling NaN cases"""
+                    value = row.get(key, default)
+                    # Convert pandas NaN to None for MySQL
+                    return None if pd.isna(value) else value
                 
-                # Prepare data tuple
                 data = (
-                    row['Title'],
-                    row.get('Description', None),
-                    row.get('Link', None),
-                    row.get('Official Link', None),
+                    row['Title'],  # Title is always present (checked above)
+                    safe_get(row, 'Description'),
+                    safe_get(row, 'Link'),
+                    safe_get(row, 'Official Link'),
                     deadline,
-                    row.get('Eligibility', None),
-                    row.get('Host Country', None),
-                    row.get('Host University', None),
-                    row.get('Program Duration', None),
-                    row.get('Degree Offered', None),
-                    region,
+                    safe_get(row, 'Eligibility'),
+                    safe_get(row, 'Host Country'),
+                    safe_get(row, 'Host University'),
+                    safe_get(row, 'Program Duration'),
+                    safe_get(row, 'Degree Offered'),
+                    None if pd.isna(region) else region,
                     post_at
                 )
                 
@@ -239,8 +256,6 @@ def process_csv_file(cursor, file_path):
         }
 
 def main():
-    
-    
     load_dotenv()
     
     # Database configuration
