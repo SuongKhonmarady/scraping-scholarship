@@ -267,23 +267,23 @@ def main(dry_run=False):
             "url": "https://opportunitiescorners.com/category/scholarships-in-europe/",
             "type": "opportunities_corners"
         },
-        # "Europe-ScholarshipsCorner": {
-        #     "url": "https://scholarshipscorner.website/scholarships-in-europe/",
-        #     "type": "scholarships_corner"
-        # },
+        "Europe-ScholarshipsCorner": {
+            "url": "https://scholarshipscorner.website/scholarships-in-europe/",
+            "type": "scholarships_corner"
+        },
         
-        # "Asia": {
-        #     "url": "https://scholarshipscorner.website/scholarships-in-asia/",
-        #     "type": "scholarships_corner"
-        # },
-        # "Australia": {
-        #     "url": "https://scholarshipscorner.website/scholarships-in-australia/",
-        #     "type": "scholarships_corner"
-        # },
-        # "Australia-OpportunitiesCorners": {
-        #     "url": "https://opportunitiescorners.com/category/scholarships-in-australia/",
-        #     "type": "opportunities_corners"
-        # },
+        "Asia": {
+            "url": "https://scholarshipscorner.website/scholarships-in-asia/",
+            "type": "scholarships_corner"
+        },
+        "Australia": {
+            "url": "https://scholarshipscorner.website/scholarships-in-australia/",
+            "type": "scholarships_corner"
+        },
+        "Australia-OpportunitiesCorners": {
+            "url": "https://opportunitiescorners.com/category/scholarships-in-australia/",
+            "type": "opportunities_corners"
+        },
         # "Middle East": {
         #     "url": "https://scholarshipscorner.website/scholarships-in-middle-east/",
         #     "type": "scholarships_corner"
