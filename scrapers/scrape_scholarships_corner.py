@@ -10,8 +10,67 @@ import time
 import csv
 import os
 import sys
+import re
 import traceback
 from urllib.parse import urljoin
+
+def generate_slug(title):
+    """
+    Generate SEO-friendly slug from scholarship title.
+    Removes years, marketing words, and creates URL-friendly format.
+    """
+    if not title or title.strip() == "":
+        return ""
+    
+    # Marketing and promotional words to remove
+    marketing_words = [
+        'apply now', 'fully funded', 'full funding', 'free', 'no fee', 'deadline',
+        'hurry up', 'limited time', 'don\'t miss', 'opportunity', 'chance',
+        'amazing', 'exclusive', 'special', 'urgent', 'last call', 'final',
+        'best', 'top', 'premium', 'guaranteed', 'easy', 'quick', 'fast'
+    ]
+    
+    # Convert to lowercase
+    slug = title.lower()
+    
+    # Remove years and year ranges (2020-2030 range)
+    # Handle formats like: 2025, 2024/25, 2025-26, 2024/2025, etc.
+    slug = re.sub(r'\b20[2-3][0-9](?:[/-](?:20)?[2-3][0-9])?\b', '', slug)
+    
+    # Remove marketing words
+    for word in marketing_words:
+        slug = re.sub(r'\b' + re.escape(word) + r'\b', '', slug)
+    
+    # Remove common scholarship-related words that add no SEO value
+    common_words = ['scholarship', 'program', 'opportunity', 'application']
+    # Keep 'scholarship' if it's the main focus, remove others
+    for word in ['program', 'opportunity', 'application']:
+        slug = re.sub(r'\b' + re.escape(word) + r'\b', '', slug)
+    
+    # Remove special characters and punctuation except hyphens and spaces
+    slug = re.sub(r'[^\w\s-]', '', slug)
+    
+    # Replace multiple spaces/hyphens with single hyphen
+    slug = re.sub(r'[\s-]+', '-', slug)
+    
+    # Remove leading/trailing hyphens
+    slug = slug.strip('-')
+    
+    # Limit length to 100 characters (SEO best practice)
+    if len(slug) > 100:
+        # Try to cut at word boundary
+        truncated = slug[:100]
+        last_hyphen = truncated.rfind('-')
+        if last_hyphen > 50:  # If we can find a reasonable break point
+            slug = truncated[:last_hyphen]
+        else:
+            slug = truncated
+    
+    # Ensure slug is not empty
+    if not slug:
+        slug = "scholarship"
+    
+    return slug
 
 # Try to import utility functions
 try:
@@ -103,7 +162,7 @@ def scrape_scholarships_corner(url, region_name, driver=None):
         
         csv_file = open(csv_filename, mode="w", newline="", encoding="utf-8")
         csv_writer = csv.DictWriter(csv_file, fieldnames=[
-            "Title", "Description", "Link", "Official Link", "Image", "Deadline", "Eligibility",
+            "Title", "Slug", "Description", "Link", "Official Link", "Image", "Deadline", "Eligibility",
             "Host Country", "Host University", "Program Duration", "Degree Offered", "Region", "Post_at"
         ])
         csv_writer.writeheader()
@@ -197,6 +256,9 @@ def scrape_scholarships_corner(url, region_name, driver=None):
                     print(f"No title found for {link}, using link as title")
                     title = link
                 
+                # Generate slug from title
+                slug = generate_slug(title)
+                
                 # Extract content div
                 content_div = soup.select_one("div.entry-content, article .post-content, .content-inner")
                 
@@ -259,9 +321,13 @@ def scrape_scholarships_corner(url, region_name, driver=None):
                                 image_url = full_url
                                 break
                 
+                # Generate SEO-friendly slug from title
+                slug = generate_slug(title)
+                
                 # Save
                 csv_writer.writerow({
                     "Title": title,
+                    "Slug": slug,
                     "Description": description,
                     "Link": link,
                     "Official Link": official_link,

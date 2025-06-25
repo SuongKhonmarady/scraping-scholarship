@@ -78,6 +78,18 @@ def clean_date(date_str):
                 
     return None
 
+def truncate_field(value, max_length, field_name="field"):
+    """Truncate field to maximum length with warning"""
+    if value is None or pd.isna(value):
+        return None
+    
+    value_str = str(value).strip()
+    if len(value_str) > max_length:
+        truncated = value_str[:max_length-3] + "..."
+        print(f"⚠️ Truncated {field_name} from {len(value_str)} to {max_length} characters")
+        return truncated
+    return value_str
+
 def create_table(cursor):
     """Create scholarships table if it doesn't exist"""
     # Check if table exists instead of dropping it
@@ -87,6 +99,7 @@ def create_table(cursor):
     CREATE TABLE IF NOT EXISTS scholarships (
         id INT AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(500),
+        slug VARCHAR(150),
         description TEXT,
         link VARCHAR(500),
         official_link VARCHAR(500),
@@ -101,9 +114,11 @@ def create_table(cursor):
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX (title(255)),
+        INDEX (slug),
         INDEX (link(255)),
         INDEX (region),
-        INDEX (post_at)
+        INDEX (post_at),
+        UNIQUE INDEX unique_slug (slug)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     """
     cursor.execute(create_table_sql)
@@ -213,11 +228,11 @@ def process_csv_file(cursor, file_path):
                 # Prepare insert query
                 insert_sql = """
                 INSERT INTO scholarships (
-                    title, description, link, official_link, deadline, 
+                    title, slug, description, link, official_link, deadline, 
                     eligibility, host_country, host_university, 
                     program_duration, degree_offered, region, post_at
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
                 """
                 
@@ -227,22 +242,33 @@ def process_csv_file(cursor, file_path):
                     value = row.get(key, default)
                     # Convert pandas NaN to None for MySQL
                     return None if pd.isna(value) else value
-                
-                # Make absolutely sure all values are properly handled for MySQL
+                  # Make absolutely sure all values are properly handled for MySQL
                 # Convert any pandas NaN or numpy.nan to None
-                title = None if pd.isna(row['Title']) else row['Title']  # Already checked above, but just to be safe
-                description = safe_get(row, 'Description')
-                link = safe_get(row, 'Link')
-                official_link = safe_get(row, 'Official Link')
-                eligibility = safe_get(row, 'Eligibility')
-                host_country = safe_get(row, 'Host Country')
-                host_university = safe_get(row, 'Host University')
-                program_duration = safe_get(row, 'Program Duration')
-                degree_offered = safe_get(row, 'Degree Offered')
+                title = truncate_field(row['Title'], 500, "title") if not pd.isna(row['Title']) else None
                 
-                # Create data tuple with all properly sanitized values
+                # Generate or get slug from CSV
+                slug_from_csv = safe_get(row, 'Slug')
+                if slug_from_csv:
+                    # Use slug from CSV but ensure it's unique
+                    slug = ensure_unique_slug(cursor, slug_from_csv, title)
+                else:
+                    # Generate slug from title if not in CSV (for backward compatibility)
+                    slug = ensure_unique_slug(cursor, generate_slug(title), title)
+                
+                description = safe_get(row, 'Description')
+                link = truncate_field(safe_get(row, 'Link'), 500, "link")
+                official_link = truncate_field(safe_get(row, 'Official Link'), 500, "official_link")
+                eligibility = safe_get(row, 'Eligibility')
+                host_country = truncate_field(safe_get(row, 'Host Country'), 100, "host_country")
+                host_university = truncate_field(safe_get(row, 'Host University'), 200, "host_university")
+                program_duration = truncate_field(safe_get(row, 'Program Duration'), 200, "program_duration")
+                degree_offered = truncate_field(safe_get(row, 'Degree Offered'), 200, "degree_offered")
+                region = truncate_field(region, 50, "region")
+                
+                # Create data tuple with all properly sanitized values (including slug)
                 data = (
-                    title, 
+                    title,
+                    slug,
                     description,
                     link,
                     official_link,
@@ -259,12 +285,18 @@ def process_csv_file(cursor, file_path):
                 try:
                     cursor.execute(insert_sql, data)
                     print(f"✅ Inserted: {row['Title'][:50]}...")
+                    inserted_rows += 1
                 except mysql.connector.Error as err:
-                    # Print the error and the data that caused it
-                    print(f"❌ MySQL Error: {str(err)}")
-                    print(f"❌ Problematic data: {data}")
-                    raise
-                inserted_rows += 1
+                    # Handle specific MySQL errors more gracefully
+                    if "Data too long for column" in str(err):
+                        print(f"⚠️ Data too long error for: {row['Title'][:50]}...")
+                        print(f"⚠️ Skipping this record due to data length constraints")
+                        skipped_rows += 1
+                    else:
+                        print(f"❌ MySQL Error: {str(err)}")
+                        print(f"❌ Problematic data: {data}")
+                        error_rows += 1
+                        # Don't raise - continue processing other records
                 
             except Exception as e:
                 print(f"❌ Error processing row {total_rows}: {str(e)}")
@@ -286,6 +318,93 @@ def process_csv_file(cursor, file_path):
             'errors': 1
         }
 
+def generate_slug(title):
+    """
+    Generate SEO-friendly slug from scholarship title.
+    Same function as in scrapData.py to ensure consistency.
+    """
+    if not title or title.strip() == "":
+        return ""
+    
+    # Marketing and promotional words to remove
+    marketing_words = [
+        'apply now', 'fully funded', 'full funding', 'free', 'no fee', 'deadline',
+        'hurry up', 'limited time', 'don\'t miss', 'opportunity', 'chance',
+        'amazing', 'exclusive', 'special', 'urgent', 'last call', 'final',
+        'best', 'top', 'premium', 'guaranteed', 'easy', 'quick', 'fast'
+    ]
+    
+    # Convert to lowercase
+    slug = title.lower()
+    
+    # Remove years and year ranges (2020-2030 range)
+    # Handle formats like: 2025, 2024/25, 2025-26, 2024/2025, etc.
+    slug = re.sub(r'\b20[2-3][0-9](?:[/-](?:20)?[2-3][0-9])?\b', '', slug)
+    
+    # Remove marketing words
+    for word in marketing_words:
+        slug = re.sub(r'\b' + re.escape(word) + r'\b', '', slug)
+    
+    # Remove common scholarship-related words that add no SEO value
+    common_words = ['scholarship', 'program', 'opportunity', 'application']
+    # Keep 'scholarship' if it's the main focus, remove others
+    for word in ['program', 'opportunity', 'application']:
+        slug = re.sub(r'\b' + re.escape(word) + r'\b', '', slug)
+    
+    # Remove special characters and punctuation except hyphens and spaces
+    slug = re.sub(r'[^\w\s-]', '', slug)
+    
+    # Replace multiple spaces/hyphens with single hyphen
+    slug = re.sub(r'[\s-]+', '-', slug)
+    
+    # Remove leading/trailing hyphens
+    slug = slug.strip('-')
+    
+    # Limit length to 100 characters (SEO best practice)
+    if len(slug) > 100:
+        # Try to cut at word boundary
+        truncated = slug[:100]
+        last_hyphen = truncated.rfind('-')
+        if last_hyphen > 50:  # If we can find a reasonable break point
+            slug = truncated[:last_hyphen]
+        else:
+            slug = truncated
+    
+    # Ensure slug is not empty
+    if not slug:
+        slug = "scholarship"
+    
+    return slug
+
+def ensure_unique_slug(cursor, base_slug, title):
+    """Ensure slug is unique by adding numeric suffix if needed"""
+    if not base_slug:
+        base_slug = generate_slug(title)
+    
+    # Check if base slug exists
+    check_sql = "SELECT COUNT(*) FROM scholarships WHERE slug = %s"
+    cursor.execute(check_sql, (base_slug,))
+    count = cursor.fetchone()[0]
+    
+    if count == 0:
+        return base_slug
+    
+    # If exists, try with numeric suffixes
+    counter = 1
+    while True:
+        new_slug = f"{base_slug}-{counter}"
+        cursor.execute(check_sql, (new_slug,))
+        count = cursor.fetchone()[0]
+        
+        if count == 0:
+            return new_slug
+        
+        counter += 1
+        # Prevent infinite loop
+        if counter > 1000:
+            return f"{base_slug}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+# Database configuration
 def main():
     load_dotenv()
     
